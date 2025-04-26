@@ -22,7 +22,7 @@ class ModelConfig:
     n_heads: int
     n_vocab: int = 50257
     max_steps: int = 2000
-    batch_size: int = 512
+    batch_size: int = 16
 
     def num_parameters(self, include_embedding=False) -> int:
         d_model = self.d_model
@@ -68,7 +68,8 @@ class ModelTrainer:
         self.tokenizer.pad_token = self.tokenizer.eos_token
 
         def tokenize_fn(examples):
-            return self.tokenizer(examples["text"], add_special_tokens=False)
+            return self.tokenizer(examples["text"], add_special_tokens=False,
+                                  return_attention_mask=False, return_special_tokens_mask=False)
 
         def group_texts(examples):
             concat = list(chain(*examples["input_ids"]))
@@ -77,19 +78,12 @@ class ModelTrainer:
                       for i in range(0, usable, N_POSITIONS)]
             return {"input_ids": blocks, "labels": blocks}
 
-        splits = ["train", "validation"]
-        self.tokenized = {
-            split: (
-                load_dataset(
-                    "wikitext", "wikitext-2-raw-v1",
-                    split=split, streaming=True
-                )
-                .map(tokenize_fn, batched=True, remove_columns=["text"])
-                .map(group_texts, batched=True, remove_columns=["attention_mask"])
-                .filter(lambda ex: len(ex["input_ids"]) > 0)
-            )
-            for split in splits
-        }
+        raw = load_dataset("allenai/c4", "en", streaming=True, token=token)
+        cols = raw["train"].column_names
+        raw = raw.map(tokenize_fn, batched=True)
+        raw = raw.remove_columns(cols)
+        raw = raw.map(group_texts, batched=True)
+        self.tokenized = raw
 
     def train(self, config: ModelConfig) -> TrainingResults:
         # build model
@@ -99,11 +93,10 @@ class ModelTrainer:
             n_head=config.n_heads,
             vocab_size=config.n_vocab,
             n_positions=N_POSITIONS,
+            use_cache=False,
         )
         model = GPT2LMHeadModel(cfg)
-        data_collator = DataCollatorForLanguageModeling(
-            tokenizer=self.tokenizer, mlm=False
-        )
+        data_collator = DataCollatorForLanguageModeling(tokenizer=self.tokenizer, mlm=False)
 
         # training arguments
         args = TrainingArguments(
@@ -124,13 +117,11 @@ class ModelTrainer:
             learning_rate=0.001,
         )
 
-        eval_dataset = self.tokenized["train"].take(1 * config.batch_size)
-        train_dataset = self.tokenized["train"].skip(1 * config.batch_size)
         trainer = Trainer(
             model=model,
             args=args,
-            train_dataset=train_dataset,
-            eval_dataset=eval_dataset,
+            train_dataset=self.tokenized["train"],
+            eval_dataset=self.tokenized["validation"].take(10),
             data_collator=data_collator
         )
 
@@ -159,7 +150,7 @@ class ModelTrainer:
 
     def run_all(self):
         configs = [
-            ModelConfig(model_name="gpt2_small", n_layers=12, d_model=768, n_heads=12, max_steps=10),
+            ModelConfig(model_name="gpt2_small", n_layers=12, d_model=128, n_heads=8, max_steps=10),
         ]
         for cfg in configs:
             print(f"Model size: {cfg.num_parameters()}, RAM usage: {cfg.gpu_memory_gb()} GB")
