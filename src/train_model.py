@@ -1,6 +1,7 @@
 import json
 import os
 from dataclasses import dataclass, asdict
+from itertools import chain
 
 from datasets import load_dataset
 from transformers import (
@@ -59,38 +60,36 @@ class TrainingResults:
 
 class ModelTrainer:
     def __init__(self):
-        self.dataset = None
         self.tokenizer = None
         self.tokenized = None
 
     def load_data(self):
-        # load dataset & tokenizer once
-        self.dataset = load_dataset("wikitext", "wikitext-2-raw-v1", token=token)
-        self.tokenizer = GPT2TokenizerFast.from_pretrained("gpt2", token=token)
+        self.tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
         self.tokenizer.pad_token = self.tokenizer.eos_token
 
         def tokenize_fn(examples):
-            return self.tokenizer(examples["text"])
-
-        tokenized = self.dataset.map(tokenize_fn, batched=True, remove_columns=["text"])
+            return self.tokenizer(examples["text"], add_special_tokens=False)
 
         def group_texts(examples):
-            # concatenate then slice into fixed‑length blocks
-            concat = {k: sum(examples[k], []) for k in examples.keys()}
-            total_len = (len(concat["input_ids"]) // N_POSITIONS) * N_POSITIONS
-            result = {
-                k: [t[i: i + N_POSITIONS]
-                    for i in range(0, total_len, N_POSITIONS)]
-                for k, t in concat.items()
-            }
-            result["labels"] = result["input_ids"].copy()  # causal LM target
-            return result
+            concat = list(chain(*examples["input_ids"]))
+            usable = (len(concat) // N_POSITIONS) * N_POSITIONS
+            blocks = [concat[i: i + N_POSITIONS]
+                      for i in range(0, usable, N_POSITIONS)]
+            return {"input_ids": blocks, "labels": blocks}
 
-        tokenized = tokenized.map(group_texts, batched=True)
-        # filter empty
-        for split in tokenized:
-            tokenized[split] = tokenized[split].filter(lambda ex: len(ex["input_ids"]) > 0)
-        self.tokenized = tokenized
+        splits = ["train", "validation"]
+        self.tokenized = {
+            split: (
+                load_dataset(
+                    "wikitext", "wikitext-2-raw-v1",
+                    split=split, streaming=True
+                )
+                .map(tokenize_fn, batched=True, remove_columns=["text"])
+                .map(group_texts, batched=True, remove_columns=["attention_mask"])
+                .filter(lambda ex: len(ex["input_ids"]) > 0)
+            )
+            for split in splits
+        }
 
     def train(self, config: ModelConfig) -> TrainingResults:
         # build model
@@ -120,8 +119,8 @@ class ModelTrainer:
             max_steps=config.max_steps,
             report_to="none",
             gradient_checkpointing=True,
-            fp16=True,
-            optim="adamw_bnb_8bit",        # switch optimiser
+            # fp16=True,
+            # optim="adamw_bnb_8bit",        # switch optimiser
             learning_rate=0.001,
         )
 
