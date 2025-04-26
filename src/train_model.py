@@ -89,11 +89,12 @@ class ModelTrainer:
             report_to="none",
         )
 
-        eval_dataset = self.tokenized["validation"].select(range(100 * config.batch_size))
+        eval_dataset = self.tokenized["train"].take(1 * config.batch_size)
+        train_dataset = self.tokenized["train"].skip(1 * config.batch_size)
         trainer = Trainer(
             model=model,
             args=args,
-            train_dataset=self.tokenized["train"],
+            train_dataset=train_dataset,
             eval_dataset=eval_dataset,
             data_collator=data_collator
         )
