@@ -1,4 +1,5 @@
 import json
+import os
 from dataclasses import dataclass, asdict
 
 from datasets import load_dataset
@@ -7,7 +8,10 @@ from transformers import (
     Trainer, TrainingArguments, DataCollatorForLanguageModeling
 )
 
-N_POSITIONS = 512
+token=os.environ["HF_TOKEN"]
+
+N_POSITIONS = 1024
+
 
 @dataclass
 class ModelConfig:
@@ -29,8 +33,8 @@ class TrainingResults:
 class ModelTrainer:
     def __init__(self):
         # load dataset & tokenizer once
-        self.dataset = load_dataset("wikitext", "wikitext-2-raw-v1")
-        self.tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
+        self.dataset = load_dataset("wikitext", "wikitext-2-raw-v1", token=token)
+        self.tokenizer = GPT2TokenizerFast.from_pretrained("gpt2", token=token)
         self.tokenizer.pad_token = self.tokenizer.eos_token
 
         def tokenize_fn(examples):
