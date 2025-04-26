@@ -8,7 +8,7 @@ from transformers import (
     Trainer, TrainingArguments, DataCollatorForLanguageModeling
 )
 
-token=os.environ["HF_TOKEN"]
+token = os.environ["HF_TOKEN"]
 
 N_POSITIONS = 1024
 
@@ -21,7 +21,34 @@ class ModelConfig:
     n_heads: int
     n_vocab: int = 50257
     max_steps: int = 2000
-    batch_size: int = 2
+    batch_size: int = 512
+
+    def num_parameters(self, include_embedding=False) -> int:
+        d_model = self.d_model
+        params = 0
+        if include_embedding:
+            params += self.n_vocab * d_model  # embedding
+            params += N_POSITIONS * d_model  # positional (not trainable)
+
+        layer_params = 0
+        d_attn = self.d_model
+        layer_params += 3 * (d_model * d_attn + d_attn)  # QKV matrices
+        layer_params += d_attn * d_model + d_model  # project back to model space
+        d_ff = 4 * d_model
+        layer_params += 2 * d_model * d_ff + d_ff + d_model  # feed forward
+        layer_params += 4 * d_model  # two layer norms
+        params += self.n_layers * layer_params
+
+        params += 2 * d_model  # final layer norm
+        return params
+
+    def num_activations(self, seq_len: int = N_POSITIONS) -> int:
+        return 2 * self.batch_size * seq_len * self.d_model * (self.n_layers + 1)
+
+    def gpu_memory_gb(self, seq_len: int = N_POSITIONS, *, fp16: bool = False) -> float:
+        bytes_per_el = 2 if fp16 else 4
+        total_bytes = bytes_per_el * (3 * self.num_parameters() + self.num_activations(seq_len))
+        return total_bytes / (1024 ** 3)  # GiB
 
 
 @dataclass
@@ -32,6 +59,11 @@ class TrainingResults:
 
 class ModelTrainer:
     def __init__(self):
+        self.dataset = None
+        self.tokenizer = None
+        self.tokenized = None
+
+    def load_data(self):
         # load dataset & tokenizer once
         self.dataset = load_dataset("wikitext", "wikitext-2-raw-v1", token=token)
         self.tokenizer = GPT2TokenizerFast.from_pretrained("gpt2", token=token)
@@ -81,12 +113,13 @@ class ModelTrainer:
             per_device_train_batch_size=config.batch_size,
             per_device_eval_batch_size=config.batch_size,
             eval_strategy="steps",
-            eval_steps=100,
+            eval_steps=1000,
             logging_strategy="steps",
-            logging_steps=200,
+            logging_steps=1000,
             save_strategy="no",
             max_steps=config.max_steps,
             report_to="none",
+            gradient_checkpointing=True,
         )
 
         eval_dataset = self.tokenized["train"].take(1 * config.batch_size)
@@ -124,11 +157,11 @@ class ModelTrainer:
 
     def run_all(self):
         configs = [
-            ModelConfig(model_name="gpt2_small", n_layers=6, d_model=128, n_heads=4, max_steps=100),
-            ModelConfig(model_name="gpt2_medium", n_layers=12, d_model=256, n_heads=8, max_steps=100),
-            ModelConfig(model_name="gpt2_large", n_layers=24, d_model=512, n_heads=16, max_steps=100),
+            ModelConfig(model_name="gpt2_small", n_layers=12, d_model=768, n_heads=12, max_steps=10),
         ]
         for cfg in configs:
+            print(f"Model size: {cfg.num_parameters()}, RAM usage: {cfg.gpu_memory_gb()} GB")
+            self.load_data()
             self.train_and_save(cfg)
 
 
