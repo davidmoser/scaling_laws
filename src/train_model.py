@@ -120,6 +120,9 @@ class ModelTrainer:
             max_steps=config.max_steps,
             report_to="none",
             gradient_checkpointing=True,
+            fp16=True,
+            optim="adamw_bnb_8bit",        # switch optimiser
+            learning_rate=0.001,
         )
 
         eval_dataset = self.tokenized["train"].take(1 * config.batch_size)
