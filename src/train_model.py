@@ -38,9 +38,23 @@ class ModelTrainer:
         self.tokenizer.pad_token = self.tokenizer.eos_token
 
         def tokenize_fn(examples):
-            return self.tokenizer(examples["text"], return_special_tokens_mask=True, max_length=N_POSITIONS)
+            return self.tokenizer(examples["text"])
 
         tokenized = self.dataset.map(tokenize_fn, batched=True, remove_columns=["text"])
+
+        def group_texts(examples):
+            # concatenate then slice into fixed‑length blocks
+            concat = {k: sum(examples[k], []) for k in examples.keys()}
+            total_len = (len(concat["input_ids"]) // N_POSITIONS) * N_POSITIONS
+            result = {
+                k: [t[i: i + N_POSITIONS]
+                    for i in range(0, total_len, N_POSITIONS)]
+                for k, t in concat.items()
+            }
+            result["labels"] = result["input_ids"].copy()  # causal LM target
+            return result
+
+        tokenized = tokenized.map(group_texts, batched=True)
         # filter empty
         for split in tokenized:
             tokenized[split] = tokenized[split].filter(lambda ex: len(ex["input_ids"]) > 0)
