@@ -12,7 +12,7 @@ class ModelConfig:
     max_steps: int = 2000
     batch_size: int = 32
 
-    def num_parameters(self, include_embedding=False) -> int:
+    def num_parameters(self, include_embedding=False, include_bias_params=True) -> int:
         d_model = self.d_model
         params = 0
         if include_embedding:
@@ -21,10 +21,10 @@ class ModelConfig:
 
         layer_params = 0
         d_attn = self.d_model
-        layer_params += 3 * (d_model * d_attn + d_attn)  # QKV matrices
-        layer_params += d_attn * d_model + d_model  # project back to model space
+        layer_params += 3 * (d_model * d_attn + d_attn if include_bias_params else 0)  # QKV matrices
+        layer_params += d_attn * d_model + d_model if include_bias_params else 0  # project back to model space
         d_ff = 4 * d_model
-        layer_params += 2 * d_model * d_ff + d_ff + d_model  # feed forward
+        layer_params += 2 * d_model * d_ff + (d_ff + d_model) if include_bias_params else 0  # feed forward
         layer_params += 4 * d_model  # two layer norms
         params += self.n_layers * layer_params
 
@@ -41,10 +41,11 @@ class ModelConfig:
 
     def flops_per_token(self):
         d_attn = self.d_model
-        return 2 * self.num_parameters(include_embedding=False) + 2 * self.n_layers * self.n_positions * d_attn
+        return 2 * self.num_parameters(include_embedding=False, include_bias_params=False) + 2 * self.n_layers * self.n_positions * d_attn
 
     def flops_per_step(self):
         return self.batch_size * self.n_positions * self.flops_per_token()
+
 
 @dataclass
 class TrainingResults:

@@ -6,8 +6,11 @@ import numpy as np
 from src.model_config import TrainingResults
 
 files = [
+    '../results/gpt2_32_results.json',
     '../results/gpt2_64_results.json',
     '../results/gpt2_128_results.json',
+    '../results/gpt2_196_results.json',
+    '../results/gpt2_256_results.json',
 ]
 
 plt.figure()
@@ -25,10 +28,11 @@ for file in files:
     compute = results.config.flops_per_step() * steps
 
     #plt.loglog(compute, train_loss, label="Training loss", linewidth=1)
-    plt.loglog(compute[10:], eval_loss[10:], label="Validation loss", linewidth=1)
+    plt.loglog(compute[10:], eval_loss[10:], label=f"{results.config.num_parameters(False)/1e6:.1f}m", linewidth=1)
 
 plt.xlabel("Flops")
 plt.ylabel("Loss")
+plt.legend()
 plt.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.5)
 plt.tight_layout()
 plt.show()
