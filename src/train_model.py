@@ -3,6 +3,7 @@ import os
 from dataclasses import dataclass, asdict
 from itertools import chain
 
+import torch
 from datasets import load_dataset
 from transformers import (
     GPT2TokenizerFast, GPT2Config, GPT2LMHeadModel,
@@ -10,6 +11,7 @@ from transformers import (
 )
 
 token = os.environ["HF_TOKEN"]
+has_cuda = torch.cuda.is_available()
 
 N_POSITIONS = 1024
 
@@ -94,7 +96,7 @@ class ModelTrainer:
             n_positions=N_POSITIONS,
             use_cache=False,
             use_bfloat16=True,
-            attn_implementation="flash_attention_2",
+            attn_implementation="flash_attention_2" if has_cuda else "eager",
         )
         model = GPT2LMHeadModel(cfg)
         data_collator = DataCollatorForLanguageModeling(tokenizer=self.tokenizer, mlm=False)
@@ -127,7 +129,7 @@ class ModelTrainer:
         trainer.train()
         history = trainer.state.log_history
 
-        train_loss = [(h["step"], h["train_loss"]) for h in history if "train_loss" in h]
+        train_loss = [(h["step"], h["loss"]) for h in history if "loss" in h]
         eval_loss = [(h["step"], h["eval_loss"]) for h in history if "eval_loss" in h]
 
         return TrainingResults(train_loss=train_loss,
