@@ -49,7 +49,7 @@ class ModelTrainer:
             n_head=config.n_heads,
             vocab_size=config.n_vocab,
             n_positions=config.n_positions,
-            use_cache=False,
+            use_cache=True,
             use_bfloat16=True,
             attn_implementation="flash_attention_2" if has_cuda else "eager",
         )
@@ -68,7 +68,7 @@ class ModelTrainer:
             save_strategy="no",
             max_steps=config.max_steps,
             report_to="none",
-            gradient_checkpointing=True,
+            gradient_checkpointing=False,
             learning_rate=0.001,
             bf16=True,
         )
