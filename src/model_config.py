@@ -39,6 +39,12 @@ class ModelConfig:
         total_bytes = bytes_per_el * (3 * self.num_parameters(include_embedding=True) + self.num_activations())
         return total_bytes / (1024 ** 3)  # GiB
 
+    def flops_per_token(self):
+        d_attn = self.d_model
+        return 2 * self.num_parameters(include_embedding=False) + 2 * self.n_layers * self.n_positions * d_attn
+
+    def flops_per_step(self):
+        return self.batch_size * self.n_positions * self.flops_per_token()
 
 @dataclass
 class TrainingResults:

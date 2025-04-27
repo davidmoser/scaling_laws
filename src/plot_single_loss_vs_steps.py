@@ -1,21 +1,16 @@
 import json
+
 import matplotlib.pyplot as plt
-from pathlib import Path
 
-# Placeholder filename
-file_path = Path("../results/gpt2_64_results.json")
+from src.model_config import TrainingResults
 
-# Load the JSON data from the file
-with open(file_path, "r") as f:
+with open('../results/gpt2_64_results.json', 'r') as f:
     data = json.load(f)
 
-# Extract training and evaluation loss data
-train_data = data["results"]["train_loss"]
-eval_data = data["results"]["eval_loss"]
+results = TrainingResults.from_dict(data)
 
-# Separate steps and losses
-train_steps, train_loss = zip(*train_data)
-eval_steps, eval_loss = zip(*eval_data)
+train_steps, train_loss = zip(*results.train_loss)
+eval_steps, eval_loss = zip(*results.eval_loss)
 
 # Plot
 plt.figure()
