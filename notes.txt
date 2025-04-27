@@ -1,0 +1,19 @@
+A100      2:30   BS 32
+L4        4:20   BS 16
+T4       24:40   BS 16, flash attention off
+TPU v4e1  2:00   BS 16, flash attn off, checkpt off
+TPU v4e1  2:00   BS 32, flash attn off, checkpt off
+
+A100 is fastest. TPU is on same order but more complicated
+A100 comparisons:
+flash attn off, chpts off, cache on: OOM
+flash attn off, chpts on, cache off: 5:30
+flash attn on, chpts on, cache off: 2:30
+flash attn on, chpts off, cache on: 2:10
+
+Last configuration:
+5 it/s
+1 step = 32 lines with 1000 tokens = 30k tokens
+150k tokens/s
+
+Makes sense according to o3 bc. my model is so small.
