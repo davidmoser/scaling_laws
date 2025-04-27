@@ -1,6 +1,5 @@
 import json
 import os
-from dataclasses import dataclass, asdict
 from itertools import chain
 
 import torch
@@ -10,54 +9,10 @@ from transformers import (
     Trainer, TrainingArguments, DataCollatorForLanguageModeling
 )
 
+from src.model_config import ModelConfig, TrainingResults
+
 token = os.environ["HF_TOKEN"]
 has_cuda = torch.cuda.is_available()
-
-N_POSITIONS = 1024
-
-
-@dataclass
-class ModelConfig:
-    model_name: str
-    n_layers: int
-    d_model: int
-    n_heads: int
-    n_vocab: int = 50257
-    max_steps: int = 2000
-    batch_size: int = 32
-
-    def num_parameters(self, include_embedding=False) -> int:
-        d_model = self.d_model
-        params = 0
-        if include_embedding:
-            params += self.n_vocab * d_model  # embedding
-            params += N_POSITIONS * d_model  # positional (not trainable)
-
-        layer_params = 0
-        d_attn = self.d_model
-        layer_params += 3 * (d_model * d_attn + d_attn)  # QKV matrices
-        layer_params += d_attn * d_model + d_model  # project back to model space
-        d_ff = 4 * d_model
-        layer_params += 2 * d_model * d_ff + d_ff + d_model  # feed forward
-        layer_params += 4 * d_model  # two layer norms
-        params += self.n_layers * layer_params
-
-        params += 2 * d_model  # final layer norm
-        return params
-
-    def num_activations(self, seq_len: int = N_POSITIONS) -> int:
-        return 2 * self.batch_size * seq_len * self.d_model * (self.n_layers + 1)
-
-    def gpu_memory_gb(self, seq_len: int = N_POSITIONS, *, fp16: bool = False) -> float:
-        bytes_per_el = 2 if fp16 else 4
-        total_bytes = bytes_per_el * (3 * self.num_parameters(include_embedding=True) + self.num_activations(seq_len))
-        return total_bytes / (1024 ** 3)  # GiB
-
-
-@dataclass
-class TrainingResults:
-    train_loss: list[tuple[int, float]]  # list of (step, loss)
-    eval_loss: list[tuple[int, float]]  # list of (step, eval_loss)
 
 
 class ModelTrainer:
@@ -65,7 +20,7 @@ class ModelTrainer:
         self.tokenizer = None
         self.tokenized = None
 
-    def load_data(self):
+    def load_data(self, n_positions):
         self.tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
         self.tokenizer.pad_token = self.tokenizer.eos_token
 
@@ -75,9 +30,9 @@ class ModelTrainer:
 
         def group_texts(examples):
             concat = list(chain(*examples["input_ids"]))
-            usable = (len(concat) // N_POSITIONS) * N_POSITIONS
-            blocks = [concat[i: i + N_POSITIONS]
-                      for i in range(0, usable, N_POSITIONS)]
+            usable = (len(concat) // n_positions) * n_positions
+            blocks = [concat[i: i + n_positions]
+                      for i in range(0, usable, n_positions)]
             return {"input_ids": blocks, "labels": blocks}
 
         raw = load_dataset("allenai/c4", "en", streaming=True, token=token)
@@ -93,7 +48,7 @@ class ModelTrainer:
             n_layer=config.n_layers,
             n_head=config.n_heads,
             vocab_size=config.n_vocab,
-            n_positions=N_POSITIONS,
+            n_positions=config.n_positions,
             use_cache=False,
             use_bfloat16=True,
             attn_implementation="flash_attention_2" if has_cuda else "eager",
@@ -132,21 +87,13 @@ class ModelTrainer:
         train_loss = [(h["step"], h["loss"]) for h in history if "loss" in h]
         eval_loss = [(h["step"], h["eval_loss"]) for h in history if "eval_loss" in h]
 
-        return TrainingResults(train_loss=train_loss,
-                               eval_loss=eval_loss)
+        return TrainingResults(config=config, train_loss=train_loss, eval_loss=eval_loss)
 
     def train_and_save(self, config: ModelConfig):
         results = self.train(config)
-        record = {
-            "config": asdict(config),
-            "results": {
-                "train_loss": results.train_loss,
-                "eval_loss": results.eval_loss,
-            }
-        }
         fname = f"../results/{config.model_name}_results.json"
         with open(fname, "w") as f:
-            json.dump(record, f, indent=2)
+            json.dump(results, f, indent=2)
         print(f"Saved results to {fname}")
 
     def run_all(self):
@@ -155,7 +102,7 @@ class ModelTrainer:
         ]
         for cfg in configs:
             print(f"Model size: {cfg.num_parameters()}, RAM usage: {cfg.gpu_memory_gb()} GB")
-            self.load_data()
+            self.load_data(cfg.n_positions)
             self.train_and_save(cfg)
 
 
