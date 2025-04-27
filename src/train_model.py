@@ -1,5 +1,6 @@
 import json
 import os
+from dataclasses import asdict
 from itertools import chain
 
 import torch
@@ -93,7 +94,7 @@ class ModelTrainer:
         results = self.train(config)
         fname = f"../results/{config.model_name}_results.json"
         with open(fname, "w") as f:
-            json.dump(results, f, indent=2)
+            json.dump(asdict(results), f, indent=2)
         print(f"Saved results to {fname}")
 
     def run_all(self):
