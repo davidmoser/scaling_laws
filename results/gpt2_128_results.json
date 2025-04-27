@@ -1,6 +1,6 @@
 {
   "config": {
-    "model_name": "gpt2_small",
+    "model_name": "gpt2 2.4m",
     "n_layers": 12,
     "d_model": 128,
     "n_heads": 8,
