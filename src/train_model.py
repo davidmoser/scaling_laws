@@ -48,7 +48,7 @@ class ModelConfig:
 
     def gpu_memory_gb(self, seq_len: int = N_POSITIONS, *, fp16: bool = False) -> float:
         bytes_per_el = 2 if fp16 else 4
-        total_bytes = bytes_per_el * (3 * self.num_parameters() + self.num_activations(seq_len))
+        total_bytes = bytes_per_el * (3 * self.num_parameters(include_embedding=True) + self.num_activations(seq_len))
         return total_bytes / (1024 ** 3)  # GiB
 
 
