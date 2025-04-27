@@ -22,7 +22,7 @@ class ModelConfig:
     n_heads: int
     n_vocab: int = 50257
     max_steps: int = 2000
-    batch_size: int = 16
+    batch_size: int = 32
 
     def num_parameters(self, include_embedding=False) -> int:
         d_model = self.d_model
@@ -86,7 +86,6 @@ class ModelTrainer:
         self.tokenized = raw
 
     def train(self, config: ModelConfig) -> TrainingResults:
-        # build model
         cfg = GPT2Config(
             n_embd=config.d_model,
             n_layer=config.n_layers,
@@ -94,27 +93,27 @@ class ModelTrainer:
             vocab_size=config.n_vocab,
             n_positions=N_POSITIONS,
             use_cache=False,
+            use_bfloat16=True,
+            attn_implementation="flash_attention_2",
         )
         model = GPT2LMHeadModel(cfg)
         data_collator = DataCollatorForLanguageModeling(tokenizer=self.tokenizer, mlm=False)
 
-        # training arguments
         args = TrainingArguments(
             output_dir=f"../results/{config.model_name}",
             overwrite_output_dir=True,
             per_device_train_batch_size=config.batch_size,
             per_device_eval_batch_size=config.batch_size,
             eval_strategy="steps",
-            eval_steps=1000,
+            eval_steps=100,
             logging_strategy="steps",
-            logging_steps=1000,
+            logging_steps=100,
             save_strategy="no",
             max_steps=config.max_steps,
             report_to="none",
             gradient_checkpointing=True,
-            # fp16=True,
-            # optim="adamw_bnb_8bit",        # switch optimiser
             learning_rate=0.001,
+            bf16=True,
         )
 
         trainer = Trainer(
@@ -150,7 +149,7 @@ class ModelTrainer:
 
     def run_all(self):
         configs = [
-            ModelConfig(model_name="gpt2_small", n_layers=12, d_model=128, n_heads=8, max_steps=10),
+            ModelConfig(model_name="gpt2_small", n_layers=12, d_model=512, n_heads=8, max_steps=30000),
         ]
         for cfg in configs:
             print(f"Model size: {cfg.num_parameters()}, RAM usage: {cfg.gpu_memory_gb()} GB")
