@@ -41,7 +41,7 @@ class ModelConfig:
 
     def flops_per_token(self):
         d_attn = self.d_model
-        return 2 * self.num_parameters(include_embedding=False, include_bias_params=False) + 2 * self.n_layers * self.n_positions * d_attn
+        return 2 * self.num_parameters(include_embedding=False, include_bias_params=True) + 2 * self.n_layers * self.n_positions * d_attn
 
     def flops_per_step(self):
         return self.batch_size * self.n_positions * self.flops_per_token()
