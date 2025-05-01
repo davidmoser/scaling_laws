@@ -99,7 +99,15 @@ class ModelTrainer:
 
     def run_all(self):
         configs = [
-            ModelConfig(model_name="gpt2_small", n_layers=12, d_model=512, n_heads=8, max_steps=30000),
+            ModelConfig(model_name="gpt2_32", n_layers=12, d_model=32, n_heads=8, max_steps=30000),
+            ModelConfig(model_name="gpt2_48", n_layers=12, d_model=48, n_heads=8, max_steps=30000),
+            ModelConfig(model_name="gpt2_64", n_layers=12, d_model=64, n_heads=8, max_steps=30000),
+            ModelConfig(model_name="gpt2_96", n_layers=12, d_model=96, n_heads=8, max_steps=30000),
+            ModelConfig(model_name="gpt2_112", n_layers=12, d_model=112, n_heads=8, max_steps=30000),
+            ModelConfig(model_name="gpt2_128", n_layers=12, d_model=128, n_heads=8, max_steps=30000),
+            ModelConfig(model_name="gpt2_160", n_layers=12, d_model=160, n_heads=8, max_steps=30000),
+            ModelConfig(model_name="gpt2_196", n_layers=12, d_model=196, n_heads=8, max_steps=30000),
+            ModelConfig(model_name="gpt2_256", n_layers=12, d_model=256, n_heads=8, max_steps=30000),
         ]
         for cfg in configs:
             print(f"Model size: {cfg.num_parameters()}, RAM usage: {cfg.gpu_memory_gb()} GB")
