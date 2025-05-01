@@ -36,14 +36,16 @@ for file in files:
     _, eval_loss = zip(*results.eval_loss)
 
     steps = np.array(steps)
-    compute = results.config.flops_per_step() * steps / (1e15 * 24 * 60 *60 if pf_days else 1)
+    compute = results.config.flops_per_step() * steps / (1e15 * 24 * 60 * 60 if pf_days else 1)
 
     min_compute = min(min_compute, compute[10])
     max_compute = max(max_compute, compute[-1])
     min_loss = min(min_loss, eval_loss[-1])
     max_loss = max(max_loss, eval_loss[10])
 
-    plt.loglog(compute[10:], eval_loss[10:], label=f"{results.config.num_parameters(False)/1e6:.1f}m", linewidth=1)
+    plt.loglog(compute[10:], eval_loss[10:],
+               label=f"{results.config.num_parameters(include_embedding=False, include_bias_params=True) / 1e6:.1f}m",
+               linewidth=1)
 
 plt.xlabel("PF-days" if pf_days else "Flops")
 plt.ylabel("Loss")
@@ -54,4 +56,4 @@ plt.show()
 
 slope = (np.log(min_loss) - np.log(max_loss)) / (np.log(max_compute) - np.log(min_compute))
 intercept = np.log(min_loss) - slope * np.log(max_compute)
-print(f"slope: {slope:.4f}, intercept: {intercept:.4f}, C_0: {np.exp(-intercept/slope):.4f}")
+print(f"slope: {slope:.4f}, intercept: {intercept:.4f}, C_0: {np.exp(-intercept / slope):.4f}")

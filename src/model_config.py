@@ -21,10 +21,10 @@ class ModelConfig:
 
         layer_params = 0
         d_attn = self.d_model
-        layer_params += 3 * (d_model * d_attn + d_attn if include_bias_params else 0)  # QKV matrices
-        layer_params += d_attn * d_model + d_model if include_bias_params else 0  # project back to model space
+        layer_params += 3 * (d_model * d_attn + (d_attn if include_bias_params else 0))  # QKV matrices
+        layer_params += d_attn * d_model + (d_model if include_bias_params else 0)  # project back to model space
         d_ff = 4 * d_model
-        layer_params += 2 * d_model * d_ff + (d_ff + d_model) if include_bias_params else 0  # feed forward
+        layer_params += 2 * d_model * d_ff + (d_ff + d_model if include_bias_params else 0)  # feed forward
         layer_params += 4 * d_model  # two layer norms
         params += self.n_layers * layer_params
 
