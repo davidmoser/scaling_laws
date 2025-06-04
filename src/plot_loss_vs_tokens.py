@@ -30,7 +30,7 @@ for file in files:
     _, eval_loss = zip(*results.eval_loss)
 
     steps = np.array(steps)
-    tokens = steps * 1024 * 32
+    tokens = steps * results.config.n_positions * results.config.batch_size
 
     plt.semilogx(tokens, eval_loss, label=f"{results.config.num_parameters(False)/1e6:.1f}m", linewidth=1)
 
