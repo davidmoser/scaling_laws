@@ -85,7 +85,7 @@ Kaplan’s efficient-frontier fit (Figure 1): L(C) = (<span style="white-space:n
 
 ---
 
-## 6 Reproduce / extend
+## 5 Reproduce / extend
 
 1. `git clone https://github.com/davidmoser/scaling_laws.git && cd scaling_laws`
 2. `pip install -r requirements.txt`
