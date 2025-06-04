@@ -628,7 +628,7 @@ import json
 import re
 import sys
 
-pattern = re.compile(r"^\s*(\d+)\s+([\d.]+)\s+([\d.]+)")  # step, train-loss, val-loss
+pattern = re.compile(r"^\s*(\d+)\s+([\d.]+)\s+([\d.]+)")  # step, train-loss, eval-loss
 
 data = {
     "train_loss": [],

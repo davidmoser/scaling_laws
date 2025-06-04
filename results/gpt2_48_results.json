@@ -1,6 +1,6 @@
 {
   "config": {
-    "model_name": "gpt2 48",
+    "model_name": "gpt2_48",
     "n_layers": 12,
     "d_model": 48,
     "n_heads": 8,
